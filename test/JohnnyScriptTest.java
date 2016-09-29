@@ -81,10 +81,10 @@ public class JohnnyScriptTest {
         List outLines = Files.readAllLines(outputPath);
 
         testCode = new ArrayList<>();
-        testCode.add("add 0");
-        testCode.add("add 0");
+        testCode.add("2000");
+        testCode.add("2000");
 
-        assertEquals(testCode.size(), outLines.size());
+        assertEquals(1000, outLines.size());
         for (int i = 0; i < testCode.size(); i++) {
             assertEquals("Line " + i, testCode.get(i),outLines.get(i));
         }
@@ -106,15 +106,17 @@ public class JohnnyScriptTest {
         List outLines = Files.readAllLines(outputPath);
 
         testCode = new ArrayList<>();
-        testCode.add("add 0");
-        testCode.add("add 1");
-        testCode.add("add 0");
+        testCode.add("2000");
+        testCode.add("2001");
+        testCode.add("2000");
 
-        assertEquals(testCode.size(), outLines.size());
+        assertEquals(1000, outLines.size());
         for (int i = 0; i < testCode.size(); i++) {
             assertEquals("Line " + i, testCode.get(i),outLines.get(i));
         }
 
     }
+
+    //TODO Tests for every code
 
 }

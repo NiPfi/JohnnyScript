@@ -1,3 +1,5 @@
+import com.sun.org.apache.bcel.internal.classfile.Code;
+
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -24,24 +26,49 @@ public class JohnnyScript {
     private static List<String> compileCode(List<String> lines) {
         List<String> compiled = new ArrayList<>();
 
-        for (String line: lines) {
-            String compiledLine = compile(line);
-            if (!compiledLine.equals("")) {
-                compiled.add(compiledLine);
-            }
+        for (int i = 0; i <= 999; i++) {
+            if (i < lines.size()) {
+                try {
+                    String compiledLine = compile(lines.get(i));
+                    if (compiledLine != null) {
+                        compiled.add(compiledLine);
+                    } else {
+                        lines.remove(i); // Remove comment line from source
+                        i--;            // Reduce index to continue at next line without skipping
+                    }
+                } catch (InvalidScriptException e) {
+                    throw new CompilerHaltException("Invalid code at line " + i, e);
+                }
+            } else compiled.add("000");
         }
 
         return compiled;
     }
 
-    private static String compile(String line) {
+    private static String compile(String line) throws InvalidScriptException {
         if (line.contains(LINE_COMMENT_DELIMITER)) {
             int commentStart = line.indexOf(LINE_COMMENT_DELIMITER);
             String nonComment = line.substring(0, commentStart);
-            return nonComment.trim();
+            if (!nonComment.equals(""))
+                return encode(nonComment);
+            else return null;
         }
         else
-            return line.trim();
+            return encode(line);
+    }
+
+    private static String encode(String line) throws InvalidScriptException {
+        String[] parts = line.trim().split(" ");
+        if (parts.length > 2) throw new InvalidScriptException("InvalidJohnnyScript (too many parts): " + line);
+        if (parts.length == 1) {
+            return String.format("%03d", Integer.parseInt(parts[0]));
+        }
+        // else there are two parts
+        String code = parts[0].toUpperCase();
+        String lo = String.format("%03d", Integer.parseInt(parts[1]));
+        String hi = Codes.valueOf(code).getCode();
+        return hi + lo;
+
     }
 
     /**
@@ -94,4 +121,32 @@ public class JohnnyScript {
         }
     }
 
+    private enum Codes {
+        TAKE(1), ADD(2), SUB(3), SAVE(4), JMP(5), TST(6), INC(7), DEC(8), NULL(9), HLT(10);
+
+        int codeOrdinal = 0;
+
+        Codes(int ord) {
+            this.codeOrdinal = ord;
+        }
+
+        public String getCode() {
+            return String.valueOf(codeOrdinal);
+        }
+    }
+
+}
+
+class InvalidScriptException extends Exception {
+
+    InvalidScriptException(String message) {
+        super(message);
+    }
+}
+
+class CompilerHaltException extends RuntimeException {
+
+    CompilerHaltException(String message, Throwable cause) {
+        super(message, cause);
+    }
 }
