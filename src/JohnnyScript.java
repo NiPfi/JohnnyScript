@@ -1,9 +1,9 @@
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Files;
-import java.util.ResourceBundle;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * Compiles JohnnyScript (.jns) files to ram files for the Johnny Simulator
@@ -14,33 +14,53 @@ public class JohnnyScript {
 
     public static void main(String[] args) throws IOException {
 
-        String filename = getFilename(args);
-        Path output = generateOutputfile(filename);
+        Path source = getFilename(args);
+        List<String> code = Files.readAllLines(source);
+        writeOutFile(source.getFileName().toString(), compileCode(code));
 
+    }
+
+    private static List<String> compileCode(List<String> lines) {
+        List<String> compiled = new ArrayList<>();
+
+        for (String line: lines) {
+            String compiledLine = compile(line);
+            if (compiledLine != null) {
+                compiled.add(compiledLine);
+            }
+        }
+
+        return compiled;
+    }
+
+    private static String compile(String line) {
+        if(line.startsWith("//")){
+           return null;
+        }
+        else return  line;
     }
 
     /**
      * Generates the output file named like the input file
+     *
      * @param filename Name of the input file to base the output file on (file ending will be stripped)
-     * @return {@link java.nio.file.Path} object for the output file
      * @throws IOException if filesystem error
      */
-    private static Path generateOutputfile(String filename) throws IOException {
+    private static void writeOutFile(String filename, List<String> lines) throws IOException {
         String name = filename.substring(0, filename.indexOf('.'));
         String outputFile = name + OUTPUT_EXTENSION;
         Path outputPath = FileSystems.getDefault().getPath(outputFile);
-        Files.createFile(outputPath);
-        return outputPath;
+        Files.write(outputPath, lines);
     }
 
     /**
      * Checks the first argument for a filename and returns it if present and readable
      *
      * @param args String array of program arguments
-     * @return Filename given to the program
+     * @return Path to the file from arguments
      * @throws IllegalArgumentException if false argument is given
      */
-    private static String getFilename(String[] args) {
+    private static Path getFilename(String[] args) {
         String filename;
         try {
             filename = args[0];
@@ -50,22 +70,22 @@ public class JohnnyScript {
             throw new IllegalArgumentException();
         }
 
-        checkInputFile(filename);
+        Path path = FileSystems.getDefault().getPath(filename);
 
-        return filename;
+        checkInputFile(path);
+
+        return path;
     }
 
     /**
      * Checks if the given filename is for a readable file that can be used to compile
      *
-     * @param filename String with the name of a file to check
+     * @param path Path of a file to check
      * @throws IllegalArgumentException if file for given filename isn't readable
      */
-    private static void checkInputFile(String filename) {
-        Path path = FileSystems.getDefault().getPath(filename);
-
+    private static void checkInputFile(Path path) {
         if (!Files.isReadable(path)) {
-            System.err.println("Invalid Filename: " + filename);
+            System.err.println("Invalid Filename: " + path.getFileName().toString());
             throw new IllegalArgumentException();
         }
     }

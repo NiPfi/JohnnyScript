@@ -7,6 +7,8 @@ import java.io.PrintStream;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.Assert.*;
 
@@ -60,8 +62,32 @@ public class JohnnyScriptTest {
 
         JohnnyScript.main(new String[]{validFile});
 
-        Path outputPath = FileSystems.getDefault().getPath(validFilename + validOutputExtension);
         assertTrue("Output file not generated or incorrectly named", Files.exists(outputPath));
+
+    }
+
+    @Test
+    public void commentLine() throws Exception {
+        List<String> testCode = new ArrayList<>();
+        testCode.add("add 0");
+        testCode.add("//Test comment");
+        testCode.add("add 0");
+        Files.write(inputPath, testCode);
+
+        JohnnyScript.main(new String[]{validFile});
+
+        assertTrue("Output file not generated or incorrectly named", Files.exists(outputPath));
+
+        List outLines = Files.readAllLines(outputPath);
+
+        testCode = new ArrayList<>();
+        testCode.add("add 0");
+        testCode.add("add 0");
+
+        assertEquals(testCode.size(), outLines.size());
+        for (int i = 0; i < testCode.size(); i++) {
+            assertEquals("Line " + i, testCode.get(i),outLines.get(i));
+        }
 
     }
 
