@@ -11,6 +11,7 @@ import java.util.List;
 public class JohnnyScript {
 
     private static final String OUTPUT_EXTENSION = ".ram";
+    private static final String LINE_COMMENT_DELIMITER = "//";
 
     public static void main(String[] args) throws IOException {
 
@@ -25,7 +26,7 @@ public class JohnnyScript {
 
         for (String line: lines) {
             String compiledLine = compile(line);
-            if (compiledLine != null) {
+            if (!compiledLine.equals("")) {
                 compiled.add(compiledLine);
             }
         }
@@ -34,10 +35,13 @@ public class JohnnyScript {
     }
 
     private static String compile(String line) {
-        if(line.startsWith("//")){
-           return null;
+        if (line.contains(LINE_COMMENT_DELIMITER)) {
+            int commentStart = line.indexOf(LINE_COMMENT_DELIMITER);
+            String nonComment = line.substring(0, commentStart);
+            return nonComment.trim();
         }
-        else return  line;
+        else
+            return line.trim();
     }
 
     /**

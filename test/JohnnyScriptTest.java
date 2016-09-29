@@ -91,4 +91,30 @@ public class JohnnyScriptTest {
 
     }
 
+    @Test
+    public void commentInline() throws Exception {
+        List<String> testCode = new ArrayList<>();
+        testCode.add("add 0");
+        testCode.add("add 1 //Test comment");
+        testCode.add("add 0");
+        Files.write(inputPath, testCode);
+
+        JohnnyScript.main(new String[]{validFile});
+
+        assertTrue("Output file not generated or incorrectly named", Files.exists(outputPath));
+
+        List outLines = Files.readAllLines(outputPath);
+
+        testCode = new ArrayList<>();
+        testCode.add("add 0");
+        testCode.add("add 1");
+        testCode.add("add 0");
+
+        assertEquals(testCode.size(), outLines.size());
+        for (int i = 0; i < testCode.size(); i++) {
+            assertEquals("Line " + i, testCode.get(i),outLines.get(i));
+        }
+
+    }
+
 }
