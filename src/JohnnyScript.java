@@ -142,7 +142,7 @@ public class JohnnyScript {
         }
     }
 
-    private enum Codes {
+    enum Codes {
         TAKE(1), ADD(2), SUB(3), SAVE(4), JMP(5), TST(6), INC(7), DEC(8), NULL(9), HLT(10);
 
         int codeOrdinal = 0;
