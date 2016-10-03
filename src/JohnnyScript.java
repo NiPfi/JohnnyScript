@@ -23,17 +23,23 @@ public class JohnnyScript {
 
     }
 
-    private static List<String> compileCode(List<String> lines) {
+    /**
+     * Generates the ram code consisting from 1000 lines of compiled JohnnyScript and "000" for empty lines
+     *
+     * @param sourceLines {@link java.util.List} of String objects containing lines of JohnnyScript code
+     * @return compiled numeric code for .ram file
+     */
+    private static List<String> compileCode(List<String> sourceLines) {
         List<String> compiled = new ArrayList<>();
 
         for (int i = 0; i <= 999; i++) {
-            if (i < lines.size()) {
+            if (i < sourceLines.size()) {
                 try {
-                    String compiledLine = compile(lines.get(i));
+                    String compiledLine = compile(sourceLines.get(i));
                     if (compiledLine != null) {
                         compiled.add(compiledLine);
                     } else {
-                        lines.remove(i); // Remove comment line from source
+                        sourceLines.remove(i); // Remove comment line from source
                         i--;            // Reduce index to continue at next line without skipping
                     }
                 } catch (InvalidScriptException e) {
@@ -45,8 +51,16 @@ public class JohnnyScript {
         return compiled;
     }
 
+    /**
+     * Handles compiling of specific lines depending on the type of code.
+     *
+     * @param line Line of JohnnyScript code
+     * @return compiled line of .ram code or null if line is a comment
+     * @throws InvalidScriptException on invalid JohnnyScript code
+     */
     private static String compile(String line) throws InvalidScriptException {
         if (line.contains(LINE_COMMENT_DELIMITER)) {
+            /* Separate code from comment */
             int commentStart = line.indexOf(LINE_COMMENT_DELIMITER);
             String nonComment = line.substring(0, commentStart);
             if (!nonComment.equals(""))
@@ -57,6 +71,13 @@ public class JohnnyScript {
             return encode(line);
     }
 
+    /**
+     * Converts textual instruction with address to numeric instruction with address
+     *
+     * @param line contains instruction with address or variable
+     * @return numeric line for instruction
+     * @throws InvalidScriptException on invalid JohnnyScript code
+     */
     private static String encode(String line) throws InvalidScriptException {
         String[] parts = line.trim().split(" ");
         if (parts.length > 2) throw new InvalidScriptException("InvalidJohnnyScript (too many parts): " + line);
