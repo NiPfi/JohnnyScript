@@ -5,7 +5,9 @@ import java.nio.file.FileSystems;
 import java.nio.file.Path;
 import java.nio.file.Files;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Compiles JohnnyScript (.jns) files to ram files for the Johnny Simulator
@@ -158,6 +160,68 @@ public class JohnnyScript {
 
 }
 
+class RamCode {
+
+    private static final int MAX_LINES = 999;
+
+    private static int writeIndex;
+
+    private ArrayList<String> code;
+    private Map<String, Integer> variables;
+
+    RamCode() {
+        code = new ArrayList<>();
+        variables = new LinkedHashMap<>();
+    }
+
+    public void addCode(String input) {
+        code.add(input);
+    }
+
+    public void addVar(String name, int value) throws DuplicateVariableException {
+        if (variables.containsKey(name)) {
+            throw new DuplicateVariableException("Variable cannot be defined twice: " + name);
+        } else variables.put(name, value);
+    }
+
+    private List<String> initializeZeros(List<String> code) {
+        for (int i = 0; i <= MAX_LINES; i++) {
+            code.add("000");
+        }
+        return code;
+    }
+
+    List getCode() {
+        List<String> output = new ArrayList<>();
+        initializeZeros(output);
+
+        writeIndex = 0;
+
+        output.set(writeIndex, generateLineZero());
+        writeIndex++;
+
+        variables.forEach((k,v) -> {
+            output.set(writeIndex, String.format("%03d",v));
+            writeIndex++;
+        });
+
+        for (String loc: code
+             ) {
+            output.add(writeIndex, loc);
+            writeIndex++;
+        }
+
+        assert writeIndex == 1 + variables.size() + code.size();
+
+        return output;
+    }
+
+    private String generateLineZero() {
+        String firstLocAdress = String.format("%03d",variables.size()+1);
+        return JohnnyScript.Codes.JMP.codeOrdinal + firstLocAdress;
+    }
+}
+
 class InvalidScriptException extends Exception {
 
     InvalidScriptException(String message) {
@@ -170,4 +234,9 @@ class CompilerHaltException extends RuntimeException {
     CompilerHaltException(String message, Throwable cause) {
         super(message, cause);
     }
+}
+
+class DuplicateVariableException extends Exception {
+
+    DuplicateVariableException(String message) {super(message);}
 }
