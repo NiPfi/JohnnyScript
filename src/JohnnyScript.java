@@ -30,7 +30,7 @@ public class JohnnyScript {
     }
 
     /**
-     * Generates ram code using RamCode object
+     * Generates ram code using RamCode object by iterating through every line of source code and handling it according to it's content
      *
      * @param sourceLines {@link List} of String objects containing lines of JohnnyScript code
      * @return compiled numeric code for .ram file
@@ -44,27 +44,18 @@ public class JohnnyScript {
                 continue;
             }
             if (line.contains(VARIABLE_DELIMITER)) {
-                String[] parts = line.split(VARIABLE_DELIMITER + "| ");
-                if (parts[0].length() == 0) {
-                    // variable declaration (# at start of line)
-                    if(parts.length != 3) {
-                        throw new InvalidScriptException("Syntax error at line " + lineNumber + ": " + line + " (variable declaration: #varname [int])");
-                    } else code.addVar(parts[1],Integer.valueOf(parts[2]));
-                } else {
-                    // reference to variable
-                    if(parts.length != 3) {
-                        throw new InvalidScriptException("Syntax error at line " + lineNumber + ": " + line + " (variable declaration: #varname [int])");
-                    } else code.addCodeWithVar(encode(parts[0], false),parts[2]);
-                }
+                code = handleVariable(code, lineNumber, line);
             } else {
                 if (line.contains(JUMP_POINT_DELIMITER)) {
+                    // handle jump point
                     String jpName = line.replace(":", "");
                     code.addJumpPoint(jpName);
                 } else {
+                    // check if jump, if yes handle accordingly
                     String[] parts = line.split(" ");
                     if(Codes.valueOf(parts[0].toUpperCase()).codeOrdinal == Codes.JMP.codeOrdinal) {
                         code.addJump(parts[1]);
-                    } else code.addCode(encode(line, true));
+                    } else code.addCode(encode(line, true)); // else just add the code as is
                 }
 
             }
@@ -77,6 +68,35 @@ public class JohnnyScript {
         } catch (InvalidJumpsException e) {
             throw new CompilerHaltException("Compiler halted due to erroneous code!\n", e);
         }
+    }
+
+    /**
+     * Handles the case where the compiler encounters a line containing a variable. If the delimiter is at the beginning
+     * of the line, the line is for initializing a new variable. If the delimiter is preceded by some String, that string
+     * is parsed as instruction and the variable will be resolved to the address it has been initialized at
+     *
+     * @param code RamCode object containing the output code
+     * @param lineNumber the line the variable is declared/used at
+     * @param line the line of source code the variable is gathered from
+     * @return RamCode object with added variable
+     * @throws InvalidScriptException on syntax error
+     * @throws DuplicateVariableException on creating a variable that's already been initialized
+     * @throws VariableNotInitializedException on accessing an inexistent variable
+     */
+    private static RamCode handleVariable(RamCode code, int lineNumber, String line) throws InvalidScriptException, DuplicateVariableException, VariableNotInitializedException {
+        String[] parts = line.split(VARIABLE_DELIMITER + "| ");
+        if (parts[0].length() == 0) {
+            // variable declaration (# at start of line)
+            if(parts.length != 3) {
+                throw new InvalidScriptException("Syntax error at line " + lineNumber + ": " + line + " (variable declaration: #varname [int])");
+            } else code.addVar(parts[1],Integer.valueOf(parts[2]));
+        } else {
+            // reference to variable
+            if(parts.length != 3) {
+                throw new InvalidScriptException("Syntax error at line " + lineNumber + ": " + line + " (variable declaration: #varname [int])");
+            } else code.addCodeWithVar(encode(parts[0], false),parts[2]);
+        }
+        return code;
     }
 
     /**
@@ -97,9 +117,10 @@ public class JohnnyScript {
     }
 
     /**
-     * Converts textual instruction with address to numeric instruction with address
+     * Converts textual instruction with address to numeric instruction with address. The address always consists out of three digits.
      *
      * @param line contains instruction with address or variable
+     * @param appendLow when true and a single part instruction (without address) is given, the address 000 is appended
      * @return numeric line for instruction
      * @throws InvalidScriptException on invalid JohnnyScript code
      */
@@ -185,11 +206,15 @@ public class JohnnyScript {
 
 }
 
+/**
+ * Gathers all  compiled code, variables and jump points and links them accordingly. It keeps the code in a list that is
+ * being filled procedurally by parsing the source code file.
+ */
 class RamCode {
 
     private static final int MAX_LINES = 999;
 
-    private static int writeIndex;
+    private static int writeIndex; // keeps track of the current line
 
     private ArrayList<String> code;
     private Map<String, Integer> variables;
@@ -197,6 +222,9 @@ class RamCode {
     private Map<String, Integer> jumpPoints;
     private Map<String, List<Integer>> jumps;
 
+    /**
+     * Constructor initializes class variables
+     */
     RamCode() {
         code = new ArrayList<>();
         variables = new LinkedHashMap<>();
@@ -205,10 +233,20 @@ class RamCode {
         jumps = new LinkedHashMap<>();
     }
 
+    /**
+     * Adds a code to the list of codes
+     * @param input numeric ram code
+     */
     void addCode(String input) {
         code.add(input);
     }
 
+    /**
+     * Adds a variable to the map of variables and keeps track of the line where the variable will be written to
+     * @param name Name of the variable
+     * @param value The value it's being initialized to
+     * @throws DuplicateVariableException on attempting to initialize a variable with the name of a pre-existing one
+     */
     void addVar(String name, int value) throws DuplicateVariableException {
         if (variables.containsKey(name)) {
             throw new DuplicateVariableException("Variable cannot be defined twice: " + name);
@@ -218,15 +256,26 @@ class RamCode {
         }
     }
 
-    void addCodeWithVar(String commandOrdinal, String var) throws VariableNotInitializedException {
+    /**
+     * Combines the instruction with the address the variable with the given name is stored at
+     * @param instruction Any valid instruction
+     * @param var Any initialized variable
+     * @throws VariableNotInitializedException if the variable has not been defined beforehand
+     */
+    void addCodeWithVar(String instruction, String var) throws VariableNotInitializedException {
         if (!variables.containsKey(var)) {
             throw new VariableNotInitializedException("Variable has not been initialized: " + var);
         } else {
             int line = varLoc.get(var);
-            code.add(commandOrdinal + String.format("%03d", line));
+            code.add(instruction + String.format("%03d", line));
         }
     }
 
+    /**
+     * Defines a jump point at the current location in the code list
+     * @param jpName the name of the jump point
+     * @throws DuplicateJumpPointException on attempting to create a second variable with the same name
+     */
     void addJumpPoint(String jpName) throws DuplicateJumpPointException {
         if (jumpPoints.containsKey(jpName)) {
             throw new DuplicateJumpPointException("Same jump point can't be set twice: " + jpName);
@@ -235,6 +284,14 @@ class RamCode {
         }
     }
 
+    /**
+     * Creates a placeholder for a jump to a jump point in the code list. This can only be done after parsing all other
+     * code because while parsing the source the compiler might encounter a variable which causes all addresses to be shifted down by 1
+     *
+     * The map uses a List to store all jumps so that multiple jumps can be stored for the same jump point.
+     *
+     * @param jpName Jump point this jump will be linked to
+     */
     void addJump(String jpName) {
         List<Integer> jumpLines;
         if (jumps.containsKey(jpName)) {
@@ -248,6 +305,9 @@ class RamCode {
         code.add(jpName + ":");
     }
 
+    /**
+     * Initializes a List of Strings by putting in the empty address "000" until MAX_LINES is reached
+     */
     private List<String> initializeZeros(List<String> code) {
         for (int i = 0; i <= MAX_LINES; i++) {
             code.add("000");
@@ -255,20 +315,32 @@ class RamCode {
         return code;
     }
 
+    /**
+     * Generates the ram file in its final form. Line 0 contains a jump to the first line after all variables.
+     * Then all variables are placed with the value they are supposed to be initialized to.
+     * Afterwards the code from the code list is inserted with placeholders for the jumps.
+     * Lastly the placeholders are replaced by their corresponding jump instruction
+     *
+     * @return ram file
+     * @throws InvalidJumpsException if there is a jump instruction for a jump point that has not been defined
+     */
     List<String> getCode() throws InvalidJumpsException {
         List<String> output = new ArrayList<>();
         initializeZeros(output);
 
         writeIndex = 0;
 
+        // generate line 0 (jump to first instruction)
         output.set(writeIndex, generateLineZero());
         writeIndex++;
 
+        // lambda instruction that prints every variable in the map formatted as 3 digits
         variables.forEach((k, v) -> {
             output.set(writeIndex, String.format("%03d", v));
             writeIndex++;
         });
 
+        // loop that appends all code from the code list to the variables
         for (String loc : code
                 ) {
             output.set(writeIndex, loc);
@@ -277,6 +349,7 @@ class RamCode {
 
         List<String> invalid = new ArrayList<>();
 
+        // lambda instruction that replaces each jump with the jmp instruction and the adress the according jump point is located at
         jumps.forEach((jpName,jumpList) -> {
             if(!jumpPoints.containsKey(jpName)) {
                 invalid.add(jpName);
@@ -298,6 +371,10 @@ class RamCode {
         return output;
     }
 
+    /**
+     * Genereates the first line in the output file that points to the first line after all variables
+     * @return ram code with jump to first line
+     */
     private String generateLineZero() {
         String firstLocAdress = String.format("%03d", variables.size() + 1);
         return JohnnyScript.Codes.JMP.codeOrdinal + firstLocAdress;

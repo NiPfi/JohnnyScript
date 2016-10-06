@@ -128,6 +128,35 @@ public class RamCodeTest {
     }
 
     @Test
+    public void testMultipleJumpsToSamePoint() throws Exception {
+        RamCode code = new RamCode();
+        code.addJumpPoint("before");
+        code.addJump("before");
+        code.addJump("before");
+
+        code.addJump("mixed");
+        code.addJumpPoint("mixed");
+        code.addJump("mixed");
+
+        code.addJump("after");
+        code.addJump("after");
+        code.addJumpPoint("after");
+
+        List codeList = code.getCode();
+
+        assertEquals(JohnnyScript.Codes.JMP.codeOrdinal + "001",codeList.get(0));
+
+        assertEquals(JohnnyScript.Codes.JMP.codeOrdinal + "001",codeList.get(1));
+        assertEquals(JohnnyScript.Codes.JMP.codeOrdinal + "001",codeList.get(2));
+
+        assertEquals(JohnnyScript.Codes.JMP.codeOrdinal + "004",codeList.get(3));
+        assertEquals(JohnnyScript.Codes.JMP.codeOrdinal + "004",codeList.get(4));
+
+        assertEquals(JohnnyScript.Codes.JMP.codeOrdinal + "007",codeList.get(5));
+        assertEquals(JohnnyScript.Codes.JMP.codeOrdinal + "007",codeList.get(6));
+    }
+
+    @Test
     public void testProgram() throws Exception {
         RamCode code = new RamCode();
         code.addVar("z3", 0);
