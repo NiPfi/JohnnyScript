@@ -168,20 +168,38 @@ class RamCode {
 
     private ArrayList<String> code;
     private Map<String, Integer> variables;
+    private Map<String, Integer> varLoc;
 
     RamCode() {
         code = new ArrayList<>();
         variables = new LinkedHashMap<>();
+        varLoc = new LinkedHashMap<>();
     }
 
-    public void addCode(String input) {
+    void addCode(String input) {
         code.add(input);
     }
 
-    public void addVar(String name, int value) throws DuplicateVariableException {
+    void addVar(String name, int value) throws DuplicateVariableException {
         if (variables.containsKey(name)) {
             throw new DuplicateVariableException("Variable cannot be defined twice: " + name);
-        } else variables.put(name, value);
+        } else {
+            variables.put(name, value);
+            varLoc.put(name, variables.size());
+        }
+    }
+
+    void addVarRef(String input) throws VariableNotInitializedException {
+        String[] parts = input.split(" ");
+        assert parts.length == 2;
+        assert parts[1].contains("#");
+        String var = parts[1].replace("#","");
+        if (!variables.containsKey(var)) {
+            throw new VariableNotInitializedException("Variable has not been initialized: " + var);
+        } else {
+            int line = varLoc.get(var);
+            code.add(parts[0] + String.format("%03d",line));
+        }
     }
 
     private List<String> initializeZeros(List<String> code) {
@@ -239,4 +257,11 @@ class CompilerHaltException extends RuntimeException {
 class DuplicateVariableException extends Exception {
 
     DuplicateVariableException(String message) {super(message);}
+}
+
+class VariableNotInitializedException extends Exception {
+
+    VariableNotInitializedException(String message) {
+        super(message);
+    }
 }
