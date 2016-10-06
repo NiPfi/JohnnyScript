@@ -24,7 +24,7 @@ public class JohnnyScript {
         try {
             writeOutFile(source.getFileName().toString(), compileCode(code));
         } catch (Exception e) {
-            throw new CompilerHaltException("Compiler halted due to erroneous code!\n", e);
+            throw new CompilerHaltException(e);
         }
 
     }
@@ -66,7 +66,7 @@ public class JohnnyScript {
         try {
             return code.getCode();
         } catch (InvalidJumpsException e) {
-            throw new CompilerHaltException("Compiler halted due to erroneous code!\n", e);
+            throw new CompilerHaltException(e);
         }
     }
 
@@ -165,7 +165,6 @@ public class JohnnyScript {
         try {
             filename = args[0];
         } catch (ArrayIndexOutOfBoundsException e) {
-            String test = "test";
             System.err.println("No argument given.\nUsage: java JohnnyScript filename");
             throw new IllegalArgumentException();
         }
@@ -216,11 +215,11 @@ class RamCode {
 
     private static int writeIndex; // keeps track of the current line
 
-    private ArrayList<String> code;
-    private Map<String, Integer> variables;
-    private Map<String, Integer> varLoc;
-    private Map<String, Integer> jumpPoints;
-    private Map<String, List<Integer>> jumps;
+    private final ArrayList<String> code;
+    private final Map<String, Integer> variables;
+    private final Map<String, Integer> varLoc;
+    private final Map<String, Integer> jumpPoints;
+    private final Map<String, List<Integer>> jumps;
 
     /**
      * Constructor initializes class variables
@@ -308,11 +307,10 @@ class RamCode {
     /**
      * Initializes a List of Strings by putting in the empty address "000" until MAX_LINES is reached
      */
-    private List<String> initializeZeros(List<String> code) {
+    private void initializeZeros(List<String> code) {
         for (int i = 0; i <= MAX_LINES; i++) {
             code.add("000");
         }
-        return code;
     }
 
     /**
@@ -349,7 +347,7 @@ class RamCode {
 
         List<String> invalid = new ArrayList<>();
 
-        // lambda instruction that replaces each jump with the jmp instruction and the adress the according jump point is located at
+        // lambda instruction that replaces each jump with the jmp instruction and the address the according jump point is located at
         jumps.forEach((jpName,jumpList) -> {
             if(!jumpPoints.containsKey(jpName)) {
                 invalid.add(jpName);
@@ -372,12 +370,12 @@ class RamCode {
     }
 
     /**
-     * Genereates the first line in the output file that points to the first line after all variables
+     * Generates the first line in the output file that points to the first line after all variables
      * @return ram code with jump to first line
      */
     private String generateLineZero() {
-        String firstLocAdress = String.format("%03d", variables.size() + 1);
-        return JohnnyScript.Codes.JMP.codeOrdinal + firstLocAdress;
+        String firstLocAddress = String.format("%03d", variables.size() + 1);
+        return JohnnyScript.Codes.JMP.codeOrdinal + firstLocAddress;
     }
 }
 
@@ -390,8 +388,8 @@ class InvalidScriptException extends Exception {
 
 class CompilerHaltException extends RuntimeException {
 
-    CompilerHaltException(String message, Throwable cause) {
-        super(message, cause);
+    CompilerHaltException(Throwable cause) {
+        super("Compiler halted due to erroneous code!\n", cause);
     }
 }
 
