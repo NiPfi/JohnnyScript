@@ -80,16 +80,13 @@ public class JohnnyScriptTest {
         List<String> outLines = Files.readAllLines(outputPath);
 
         testCode = new ArrayList<>();
+        testCode.add("5001");
         testCode.add("2000");
         testCode.add("2000");
 
-        assertEquals(1000, outLines.size());
         for (int i = 0; i < testCode.size(); i++) {
             assertEquals("Line " + i, testCode.get(i),outLines.get(i));
         }
-
-        testZeroLines(testCode.size(), outLines);
-
     }
 
     @Test
@@ -107,17 +104,25 @@ public class JohnnyScriptTest {
         List<String> outLines = Files.readAllLines(outputPath);
 
         testCode = new ArrayList<>();
+        testCode.add("5001");
         testCode.add("2000");
         testCode.add("2001");
         testCode.add("2000");
 
-        assertEquals(1000, outLines.size());
         for (int i = 0; i < testCode.size(); i++) {
             assertEquals("Line " + i, testCode.get(i),outLines.get(i));
         }
 
-        testZeroLines(testCode.size(), outLines);
+    }
 
+    @Test
+    public void testMaxLines() throws Exception {
+        List<String> testCode = new ArrayList<>();
+        Files.write(inputPath, testCode);
+
+        JohnnyScript.main(new String[]{validFile});
+        List<String> outLines = Files.readAllLines(outputPath);
+        assertEquals(1000, outLines.size());
     }
 
     @Test
@@ -135,10 +140,6 @@ public class JohnnyScriptTest {
     @Test
     public void testSave() throws Exception {
         exhTest("SAVE");
-    }
-    @Test
-    public void testJmp() throws Exception {
-        exhTest("JMP");
     }
     @Test
     public void testTst() throws Exception {
@@ -162,22 +163,11 @@ public class JohnnyScriptTest {
     }
 
     /**
-     * Checks if lines after code are correctly filled with "000"
-     * @param i start index of "000" lines
-     * @param testCode code to test
-     */
-    private void testZeroLines(int i, List<String> testCode) {
-        for (;i < 1000; i++) {
-            assertEquals("000",testCode.get(i));
-        }
-    }
-
-    /**
      * Tests conversion of all possible addresses for a code
      * @param code Code to test
      */
     private void exhTest(String code) throws Exception {
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 999; i++) {
             List<String> testCode = new ArrayList<>();
             testCode.add(code + " " + i);
             Files.write(inputPath, testCode);
@@ -189,12 +179,11 @@ public class JohnnyScriptTest {
             testCode = new ArrayList<>();
             testCode.add(JohnnyScript.Codes.valueOf(code).getCode()+ String.format("%03d",i));
 
-            assertEquals(1000, outLines.size());
-            for (int j = 0; j < testCode.size(); j++) {
+            assertEquals("Line " + 0, "5001",outLines.get(0));
+
+            for (int j = 1; j < testCode.size(); j++) {
                 assertEquals("Line " + j, testCode.get(j),outLines.get(j));
             }
-
-            testZeroLines(testCode.size(),outLines);
         }
     }
 }

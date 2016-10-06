@@ -14,60 +14,86 @@ public class JohnnyScript {
 
     private static final String OUTPUT_EXTENSION = ".ram";
     private static final String LINE_COMMENT_DELIMITER = "//";
+    private static final String JUMP_POINT_DELIMITER = ":";
+    private static final String VARIABLE_DELIMITER = "#";
 
     public static void main(String[] args) throws IOException {
 
         Path source = getFilename(args);
         List<String> code = Files.readAllLines(source);
-        writeOutFile(source.getFileName().toString(), compileCode(code));
-
-    }
-
-    /**
-     * Generates the ram code consisting from 1000 lines of compiled JohnnyScript and "000" for empty lines
-     *
-     * @param sourceLines {@link java.util.List} of String objects containing lines of JohnnyScript code
-     * @return compiled numeric code for .ram file
-     */
-    private static List<String> compileCode(List<String> sourceLines) {
-        List<String> compiled = new ArrayList<>();
-
-        for (int i = 0; i <= 999; i++) {
-            if (i < sourceLines.size()) {
-                try {
-                    String compiledLine = compile(sourceLines.get(i));
-                    if (compiledLine != null) {
-                        compiled.add(compiledLine);
-                    } else {
-                        sourceLines.remove(i); // Remove comment line from source
-                        i--;            // Reduce index to continue at next line without skipping
-                    }
-                } catch (InvalidScriptException e) {
-                    throw new CompilerHaltException("Invalid code at line " + i, e);
-                }
-            } else compiled.add("000");
+        try {
+            writeOutFile(source.getFileName().toString(), compileCode(code));
+        } catch (Exception e) {
+            throw new CompilerHaltException("Compiler halted due to erroneous code!\n", e);
         }
 
-        return compiled;
     }
 
     /**
-     * Handles compiling of specific lines depending on the type of code.
+     * Generates ram code using RamCode object
+     *
+     * @param sourceLines {@link List} of String objects containing lines of JohnnyScript code
+     * @return compiled numeric code for .ram file
+     */
+    private static List<String> compileCode(List<String> sourceLines) throws InvalidScriptException, DuplicateVariableException, VariableNotInitializedException, DuplicateJumpPointException {
+        RamCode code = new RamCode();
+        int lineNumber = 0;
+        for (String line:sourceLines) {
+            line = decomment(line);
+            if (line == null) {
+                continue;
+            }
+            if (line.contains(VARIABLE_DELIMITER)) {
+                String[] parts = line.split(VARIABLE_DELIMITER + "| ");
+                if (parts[0].length() == 0) {
+                    // variable declaration (# at start of line)
+                    if(parts.length != 3) {
+                        throw new InvalidScriptException("Syntax error at line " + lineNumber + ": " + line + " (variable declaration: #varname [int])");
+                    } else code.addVar(parts[1],Integer.valueOf(parts[2]));
+                } else {
+                    // reference to variable
+                    if(parts.length != 3) {
+                        throw new InvalidScriptException("Syntax error at line " + lineNumber + ": " + line + " (variable declaration: #varname [int])");
+                    } else code.addCodeWithVar(encode(parts[0], false),parts[2]);
+                }
+            } else {
+                if (line.contains(JUMP_POINT_DELIMITER)) {
+                    String jpName = line.replace(":", "");
+                    code.addJumpPoint(jpName);
+                } else {
+                    String[] parts = line.split(" ");
+                    if(Codes.valueOf(parts[0].toUpperCase()).codeOrdinal == Codes.JMP.codeOrdinal) {
+                        code.addJump(parts[1]);
+                    } else code.addCode(encode(line, true));
+                }
+
+            }
+            lineNumber++;
+
+        }
+
+        try {
+            return code.getCode();
+        } catch (InvalidJumpsException e) {
+            throw new CompilerHaltException("Compiler halted due to erroneous code!\n", e);
+        }
+    }
+
+    /**
+     * Removes comments from line and trims excess whitespace
      *
      * @param line Line of JohnnyScript code
      * @return compiled line of .ram code or null if line is a comment
-     * @throws InvalidScriptException on invalid JohnnyScript code
      */
-    private static String compile(String line) throws InvalidScriptException {
+    private static String decomment(String line) {
         if (line.contains(LINE_COMMENT_DELIMITER)) {
             /* Separate code from comment */
             int commentStart = line.indexOf(LINE_COMMENT_DELIMITER);
             String nonComment = line.substring(0, commentStart);
             if (!nonComment.equals(""))
-                return encode(nonComment);
+                return nonComment.trim();
             else return null;
-        } else
-            return encode(line);
+        } else return line.trim();
     }
 
     /**
@@ -77,17 +103,19 @@ public class JohnnyScript {
      * @return numeric line for instruction
      * @throws InvalidScriptException on invalid JohnnyScript code
      */
-    private static String encode(String line) throws InvalidScriptException {
-        String[] parts = line.trim().split(" ");
-        if (parts.length > 2) throw new InvalidScriptException("InvalidJohnnyScript (too many parts): " + line);
+    private static String encode(String line, boolean appendLow) throws InvalidScriptException {
+        String[] parts = line.split(" ");
+        if (parts.length > 2) throw new InvalidScriptException("Syntax error (too many parts): " + line);
         if (parts.length == 1) {
-            return String.format("%03d", Integer.parseInt(parts[0]));
+            String output = Codes.valueOf(parts[0].toUpperCase()).getCode();
+            if (appendLow) output = output + "000";
+            return output;
+        } else {
+            String code = parts[0].toUpperCase();
+            String hi = Codes.valueOf(code).getCode();
+            String lo = String.format("%03d", Integer.parseInt(parts[1]));
+            return hi + lo;
         }
-        // else there are two parts
-        String code = parts[0].toUpperCase();
-        String lo = String.format("%03d", Integer.parseInt(parts[1]));
-        String hi = Codes.valueOf(code).getCode();
-        return hi + lo;
 
     }
 
@@ -160,7 +188,6 @@ public class JohnnyScript {
 class RamCode {
 
     private static final int MAX_LINES = 999;
-    private static final String JUMP_POINT_DELIMITER = ":";
 
     private static int writeIndex;
 
@@ -191,16 +218,12 @@ class RamCode {
         }
     }
 
-    void addCodeWithVar(String input) throws VariableNotInitializedException {
-        assert input.contains("#");
-        String[] parts = input.split("#");
-        assert parts.length == 2;
-        String var = parts[1];
+    void addCodeWithVar(String commandOrdinal, String var) throws VariableNotInitializedException {
         if (!variables.containsKey(var)) {
             throw new VariableNotInitializedException("Variable has not been initialized: " + var);
         } else {
             int line = varLoc.get(var);
-            code.add(parts[0].trim() + String.format("%03d", line));
+            code.add(commandOrdinal + String.format("%03d", line));
         }
     }
 
@@ -232,7 +255,7 @@ class RamCode {
         return code;
     }
 
-    List getCode() throws InvalidJumpsException {
+    List<String> getCode() throws InvalidJumpsException {
         List<String> output = new ArrayList<>();
         initializeZeros(output);
 
@@ -248,7 +271,7 @@ class RamCode {
 
         for (String loc : code
                 ) {
-            output.add(writeIndex, loc);
+            output.set(writeIndex, loc);
             writeIndex++;
         }
 
@@ -261,7 +284,7 @@ class RamCode {
                 for (int line:jumpList) {
                     line = 1 + variables.size() + line;
                     assert output.get(line).equals(jpName + ":");
-                    output.set(line, JohnnyScript.Codes.JMP.codeOrdinal + String.format("%03d", line));
+                    output.set(line, JohnnyScript.Codes.JMP.codeOrdinal + String.format("%03d", 1+variables.size()+jumpPoints.get(jpName)));
                 }
             }
         });
