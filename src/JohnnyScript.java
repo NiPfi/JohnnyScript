@@ -1,5 +1,3 @@
-import com.sun.org.apache.bcel.internal.classfile.Code;
-
 import java.io.IOException;
 import java.nio.file.FileSystems;
 import java.nio.file.Path;
@@ -68,8 +66,7 @@ public class JohnnyScript {
             if (!nonComment.equals(""))
                 return encode(nonComment);
             else return null;
-        }
-        else
+        } else
             return encode(line);
     }
 
@@ -163,17 +160,22 @@ public class JohnnyScript {
 class RamCode {
 
     private static final int MAX_LINES = 999;
+    private static final String JUMP_POINT_DELIMITER = ":";
 
     private static int writeIndex;
 
     private ArrayList<String> code;
     private Map<String, Integer> variables;
     private Map<String, Integer> varLoc;
+    private Map<String, Integer> jumpPoints;
+    private Map<String, List<Integer>> jumps;
 
     RamCode() {
         code = new ArrayList<>();
         variables = new LinkedHashMap<>();
         varLoc = new LinkedHashMap<>();
+        jumpPoints = new LinkedHashMap<>();
+        jumps = new LinkedHashMap<>();
     }
 
     void addCode(String input) {
@@ -189,17 +191,38 @@ class RamCode {
         }
     }
 
-    void addVarRef(String input) throws VariableNotInitializedException {
-        String[] parts = input.split(" ");
+    void addCodeWithVar(String input) throws VariableNotInitializedException {
+        assert input.contains("#");
+        String[] parts = input.split("#");
         assert parts.length == 2;
-        assert parts[1].contains("#");
-        String var = parts[1].replace("#","");
+        String var = parts[1];
         if (!variables.containsKey(var)) {
             throw new VariableNotInitializedException("Variable has not been initialized: " + var);
         } else {
             int line = varLoc.get(var);
-            code.add(parts[0] + String.format("%03d",line));
+            code.add(parts[0].trim() + String.format("%03d", line));
         }
+    }
+
+    void addJumpPoint(String jpName) throws DuplicateJumpPointException {
+        if (jumpPoints.containsKey(jpName)) {
+            throw new DuplicateJumpPointException("Same jump point can't be set twice: " + jpName);
+        } else {
+            jumpPoints.put(jpName, code.size());
+        }
+    }
+
+    void addJump(String jpName) {
+        List<Integer> jumpLines;
+        if (jumps.containsKey(jpName)) {
+            jumpLines = jumps.get(jpName);
+        } else {
+            jumpLines = new ArrayList<>();
+        }
+        jumpLines.add(code.size());
+        jumps.put(jpName,jumpLines);
+
+        code.add(jpName + ":");
     }
 
     private List<String> initializeZeros(List<String> code) {
@@ -209,7 +232,7 @@ class RamCode {
         return code;
     }
 
-    List getCode() {
+    List getCode() throws InvalidJumpsException {
         List<String> output = new ArrayList<>();
         initializeZeros(output);
 
@@ -218,15 +241,33 @@ class RamCode {
         output.set(writeIndex, generateLineZero());
         writeIndex++;
 
-        variables.forEach((k,v) -> {
-            output.set(writeIndex, String.format("%03d",v));
+        variables.forEach((k, v) -> {
+            output.set(writeIndex, String.format("%03d", v));
             writeIndex++;
         });
 
-        for (String loc: code
-             ) {
+        for (String loc : code
+                ) {
             output.add(writeIndex, loc);
             writeIndex++;
+        }
+
+        List<String> invalid = new ArrayList<>();
+
+        jumps.forEach((jpName,jumpList) -> {
+            if(!jumpPoints.containsKey(jpName)) {
+                invalid.add(jpName);
+            } else {
+                for (int line:jumpList) {
+                    line = 1 + variables.size() + line;
+                    assert output.get(line).equals(jpName + ":");
+                    output.set(line, JohnnyScript.Codes.JMP.codeOrdinal + String.format("%03d", line));
+                }
+            }
+        });
+
+        if (!invalid.isEmpty()) {
+            throw new InvalidJumpsException("Jumps to inexistent jump points: " + invalid.toString());
         }
 
         assert writeIndex == 1 + variables.size() + code.size();
@@ -235,7 +276,7 @@ class RamCode {
     }
 
     private String generateLineZero() {
-        String firstLocAdress = String.format("%03d",variables.size()+1);
+        String firstLocAdress = String.format("%03d", variables.size() + 1);
         return JohnnyScript.Codes.JMP.codeOrdinal + firstLocAdress;
     }
 }
@@ -256,12 +297,26 @@ class CompilerHaltException extends RuntimeException {
 
 class DuplicateVariableException extends Exception {
 
-    DuplicateVariableException(String message) {super(message);}
+    DuplicateVariableException(String message) {
+        super(message);
+    }
 }
 
 class VariableNotInitializedException extends Exception {
 
     VariableNotInitializedException(String message) {
+        super(message);
+    }
+}
+
+class DuplicateJumpPointException extends Exception {
+    DuplicateJumpPointException(String message) {
+        super(message);
+    }
+}
+
+class InvalidJumpsException extends Exception {
+    InvalidJumpsException(String message) {
         super(message);
     }
 }
