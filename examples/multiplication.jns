@@ -1,0 +1,11 @@
+#result 0
+:start
+take #result
+#z1 5
+add #z1
+#z2 3
+save #result
+dec #z2
+tst #z2
+jmp start
+hlt
