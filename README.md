@@ -40,6 +40,10 @@ Valid values are addresses, variables and for the JMP instruction jump points (s
 
 Instructions are not case-sensitive
 
+#### Comments
+JohnnyScript can be commented with two leading slashes "//" like so:
+> __//__ This is a comment
+
 #### Variables
 How to define a variable:
 
